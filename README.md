@@ -8,8 +8,9 @@ This is an implementation of the Growl utility `growlnotify` in Python.
 I wanted to create this because the utility seems to be closed source
 but the protocol is not, and it only exists on the supported platforms.
 
-The aim is to be argument compatible with the MacOS and Windows
-utilities. Here's the output of the Windows variant:
+The aim is to be fully argument compatible with growlnotify on MacOS, and
+possibly on some level also the Windows variant. Here's the output of
+the Windows variant:
 
     Send a Growl notification to a local or remote host
 
