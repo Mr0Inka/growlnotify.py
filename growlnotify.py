@@ -1,9 +1,20 @@
 #!/usr/bin/env python3
 import os
 import argparse
-import gntp.notifier
+import configparser
 import logging
 logging.basicConfig(level=logging.ERROR)
+import gntp.notifier
+
+CONFIG_FILE=os.path.expanduser('~/.growlnotifyrc')
+if os.path.exists(CONFIG_FILE):
+    with open(CONFIG_FILE, 'r') as f:
+        config_string = '[growlnotify]\n' + f.read()
+else:
+    config_string = '[growlnotify]\n'
+
+config = configparser.ConfigParser()
+config.read_string(config_string)
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--title", help="notification title (default: 'Growl Notification')")
@@ -16,7 +27,7 @@ parser.add_argument("--type", help="notification type (default: 'Notification')"
 parser.add_argument("--url", help="callback URL which will be opened if the notification is clicked")
 parser.add_argument("--host", help="host where growl is running (default: localhost)")
 parser.add_argument("--password", help="password, if required to send notification to growl service on remote host")
-parser.add_argument("messagetext", help="text of the notification")
+parser.add_argument("message", help="text of the notification")
 
 # Unimplemented possible GNTP options
 #parser.add_argument("--encryption", help="encryption to use, valid values NONE|DES|3DES|AES, if value other than NONE, then --password and --hash needs to be given")
@@ -26,16 +37,20 @@ parser.add_argument("messagetext", help="text of the notification")
 
 args = parser.parse_args()
 
-title = args.title if args.title else "Growl Notification"
-host = args.host if args.host else "localhost"
-password = args.password if args.password else None
-application = args.application if args.application else "growlnotify.py"
-icon = args.icon if args.icon else None
-messagetext = args.messagetext if args.messagetext else None
-type = args.type if args.type else "Notification"
+title = args.title if args.title else config.get('growlnotify', 'title', fallback="Growl Notification")
+host = args.host if args.host else config.get('growlnotify', 'host', fallback="localhost")
+password = args.password if args.password else config.get('growlnotify', 'password', fallback=None)
+application = args.application if args.application else config.get('growlnotify', 'application', fallback="growlnotify.py")
+icon = args.icon if args.icon else config.get('growlnotify', 'icon', fallback=None)
+message = args.message if args.message else config.get('growlnotify', 'message', fallback=None)
+type = args.type if args.type else config.get('growlnotify', 'type', fallback="Notification")
 sticky = args.sticky
-url = args.url if args.url else None
-priority = args.priority if args.priority else 1
+url = args.url if args.url else config.get('growlnotify', 'url', fallback=None)
+priority = args.priority if args.priority else config.get('growlnotify', 'priority', fallback=1)
+
+if host != "localhost" and password is None:
+    print("ERROR: --password is required if contacting remote service")
+    quit()
 
 growl = gntp.notifier.GrowlNotifier(
         applicationName = application,
@@ -44,7 +59,11 @@ growl = gntp.notifier.GrowlNotifier(
         hostname = host,
         password = password
 )
-growl.register()
+try:
+    growl.register()
+except gntp.errors.NetworkError as e:
+    print("ERROR: Could not contact Growl service on host '{}'".format(host))
+    quit()
 
 # Package image data?
 if (icon and not icon.startswith("http")):
@@ -56,7 +75,7 @@ if (icon and not icon.startswith("http")):
 growl.notify(
     noteType = type,
     title = title,
-    description = messagetext,
+    description = message,
     icon = icon,
     sticky = sticky,
     callback = url,
